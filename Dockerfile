@@ -4,15 +4,15 @@ FROM node:18.19.1-alpine3.18 AS base
 FROM base AS builder
 
 ENV SHARP_FORCE_GLOBAL_LIBVIPS=1
-
 ENV npm_package_config_libvips=8.14.3
 
 # Update and upgrade APK packages
 RUN apk update && apk upgrade
 
-# Install dependencies for building libvips and sharp
+# Install dependencies for building libheif, libvips, and sharp
 RUN apk add --no-cache \
   build-base \
+  cmake \
   meson \
   ninja \
   zlib-dev \
@@ -21,23 +21,39 @@ RUN apk add --no-cache \
   tiff-dev \
   glib-dev \
   libjpeg-turbo-dev \
-  libheif \
-  libheif-dev \
   libexif-dev \
   lcms2-dev \
   fftw-dev \
   libpng-dev \
   libwebp-dev \
   libarchive-dev \
-  gobject-introspection-dev  # Add this line to install gobject-introspection
+  gobject-introspection-dev \
+  aom-dev \
+  make
 
-# Verify the installation of libheif
-RUN apk info | grep libheif
+# Verify the installation of necessary packages
+RUN apk info | grep libheif || true
+
+# Set libheif version and download URL
+ARG HEIF_VERSION=1.16.2
+ARG HEIF_URL=https://github.com/strukturag/libheif/archive/refs/tags/v${HEIF_VERSION}.tar.gz
+
+# Download and build libheif from source
+RUN wget ${HEIF_URL} \
+  && tar -xzf v${HEIF_VERSION}.tar.gz \
+  && cd libheif-${HEIF_VERSION} \
+  && cmake . -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
+  && make \
+  && make install
+
+# Verify libheif installation
+RUN heif-convert --version && echo "Libheif Successfully Installed"
 
 # Set libvips version and download URL
 ARG VIPS_VERSION=8.14.3
 ARG VIPS_URL=https://github.com/libvips/libvips/releases/download
 
+# Download and build libvips from source
 # Download and build libvips from source
 RUN wget ${VIPS_URL}/v${VIPS_VERSION}/vips-${VIPS_VERSION}.tar.xz \
   && tar xf vips-${VIPS_VERSION}.tar.xz \
