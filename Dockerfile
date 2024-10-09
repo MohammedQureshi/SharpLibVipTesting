@@ -77,8 +77,8 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install npm dependencies, including sharp
-RUN npm install --save node-addon-api node-gyp
-RUN npm install --build-from-source sharp
+RUN npm install --global node-addon-api node-gyp
+RUN npm install && npm install --build-from-source sharp
 
 # Copy the rest of the application code to the container
 COPY . .
