@@ -41,12 +41,12 @@ RUN apk add --no-cache \
 RUN apk info | grep libheif || true
 
 # Set libheif version and download URL
-ARG HEIF_VERSION=1.16.2
-ARG HEIF_URL=https://github.com/strukturag/libheif/archive/refs/tags/v${HEIF_VERSION}.tar.gz
+ARG HEIF_VERSION=1.18.2
+ARG HEIF_URL=https://github.com/strukturag/libheif/releases/download/v${HEIF_VERSION}/libheif-${HEIF_VERSION}.tar.gz
 
 # Download and build libheif from source with codec support
 RUN wget ${HEIF_URL} \
-  && tar -xzf v${HEIF_VERSION}.tar.gz \
+  && tar -xzf libheif-${HEIF_VERSION}.tar.gz \
   && cd libheif-${HEIF_VERSION} \
   && cmake . -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
   -DWITH_EXAMPLES=ON -DWITH_LIBX265=ON -DWITH_AOM=ON -DWITH_DAV1D=ON -DWITH_LIBDE265=ON -DENABLE_PLUGIN_LOADING=NO \
