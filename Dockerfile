@@ -5,6 +5,9 @@ FROM base AS builder
 
 ENV SHARP_IGNORE_GLOBAL_LIBVIPS=1
 ENV npm_package_config_libvips=8.15.3
+ENV npm_config_platform=linux
+ENV npm_config_arch=x64
+ENV npm_config_libc=musl
 
 # Update and upgrade APK packages
 RUN apk update && apk upgrade
