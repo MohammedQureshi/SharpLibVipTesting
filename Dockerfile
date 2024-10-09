@@ -3,8 +3,8 @@ FROM node:18.19.1-alpine3.18 AS base
 
 FROM base AS builder
 
-ENV SHARP_FORCE_GLOBAL_LIBVIPS=1
-ENV npm_package_config_libvips=8.14.3
+ENV SHARP_IGNORE_GLOBAL_LIBVIPS=1
+ENV npm_package_config_libvips=8.15.3
 
 # Update and upgrade APK packages
 RUN apk update && apk upgrade
@@ -35,7 +35,6 @@ RUN apk add --no-cache \
   x265-dev \
   dav1d-dev \
   libde265-dev \
-  aom-dev
 
 # Verify the installation of necessary packages
 RUN apk info | grep libheif || true
@@ -57,7 +56,7 @@ RUN wget ${HEIF_URL} \
 RUN heif-convert --version && echo "Libheif Successfully Installed"
 
 # Set libvips version and download URL
-ARG VIPS_VERSION=8.14.3
+ARG VIPS_VERSION=8.15.3
 ARG VIPS_URL=https://github.com/libvips/libvips/releases/download
 
 # Download and build libvips from source
@@ -78,7 +77,8 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install npm dependencies, including sharp
-RUN npm install --arch=x64 --platform=linux --unsafe-perm sharp
+RUN npm install --save node-addon-api node-gyp
+RUN npm install --build-from-source sharp
 
 # Copy the rest of the application code to the container
 COPY . .
