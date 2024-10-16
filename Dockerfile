@@ -1,93 +1,88 @@
-# Use Node.js 18.19.1 with Alpine 3.18 as the base image
+# Use node:18.19.1-alpine3.18 as base image
 FROM node:18.19.1-alpine3.18 AS base
 
-FROM base AS builder
+USER root
 
-ENV SHARP_IGNORE_GLOBAL_LIBVIPS=1
-ENV npm_package_config_libvips=8.15.3
-ENV npm_config_platform=linux
-ENV npm_config_arch=x64
-ENV npm_config_libc=musl
+ARG LIBDE265_VERSION=1.0.15
+ENV LIBDE265_VERSION=$LIBDE265_VERSION
 
-# Update and upgrade APK packages
-RUN apk update && apk upgrade
+ARG LIBHEIF_VERSION=1.18.2
+ENV LIBHEIF_VERSION=$LIBHEIF_VERSION
 
-# Install dependencies for building libheif, libvips, and sharp
-RUN apk add --no-cache \
-  build-base \
-  cmake \
-  meson \
-  ninja \
-  zlib-dev \
-  expat-dev \
-  jpeg-dev \
-  tiff-dev \
-  glib-dev \
-  libjpeg-turbo-dev \
-  libexif-dev \
-  lcms2-dev \
-  fftw-dev \
-  libpng-dev \
-  libwebp-dev \
-  libarchive-dev \
-  gobject-introspection-dev \
-  aom-dev \
-  make
-
-RUN apk add --no-cache \
-  x265-dev \
-  dav1d-dev \
-  libde265-dev \
-
-# Verify the installation of necessary packages
-RUN apk info | grep libheif || true
-
-# Set libheif version and download URL
-ARG HEIF_VERSION=1.18.2
-ARG HEIF_URL=https://github.com/strukturag/libheif/releases/download/v${HEIF_VERSION}/libheif-${HEIF_VERSION}.tar.gz
-
-# Download and build libheif from source with codec support
-RUN wget ${HEIF_URL} \
-  && tar -xzf libheif-${HEIF_VERSION}.tar.gz \
-  && cd libheif-${HEIF_VERSION} \
-  && cmake . -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
-  -DWITH_EXAMPLES=ON -DWITH_LIBX265=ON -DWITH_AOM=ON -DWITH_DAV1D=ON -DWITH_LIBDE265=ON -DENABLE_PLUGIN_LOADING=NO \
-  && make \
-  && make install
-
-# Verify libheif installation
-RUN heif-convert --version && echo "Libheif Successfully Installed"
-
-# Set libvips version and download URL
 ARG VIPS_VERSION=8.15.3
-ARG VIPS_URL=https://github.com/libvips/libvips/releases/download
+ENV VIPS_VERSION=$VIPS_VERSION
 
-# Download and build libvips from source
-RUN wget ${VIPS_URL}/v${VIPS_VERSION}/vips-${VIPS_VERSION}.tar.xz \
-  && tar xf vips-${VIPS_VERSION}.tar.xz \
-  && cd vips-${VIPS_VERSION} \
-  && meson setup build \
-  && meson compile -C build \
-  && meson install -C build
+RUN apk add --no-cache \
+    make gcc g++ python3 git nodejs npm zip
 
-# Verify libvips installation
-RUN vips --version && echo "Vips Successfully Installed"
+RUN apk add --no-cache \
+    cmake autoconf automake libtool meson ninja curl \
+    pkgconfig glib-dev expat-dev tiff-dev libjpeg-turbo-dev libgsf libexif libpng-dev cgif libjxl libimagequant
 
-# Set the working directory in the container
+# Install libwebp
+RUN git clone https://chromium.googlesource.com/webm/libwebp && \
+    cd libwebp && \
+    ./autogen.sh && \
+    ./configure && \
+    make && \
+    make install && \
+    cd .. && \
+    rm -rf libwebp
+
+# Install x265
+RUN git clone https://bitbucket.org/multicoreware/x265_git.git && \
+    cd x265_git && \
+    cmake source && \
+    make && \
+    cd .. && \
+    rm -rf x265_git
+
+# Install libde265
+RUN curl -L https://github.com/strukturag/libde265/releases/download/v${LIBDE265_VERSION}/libde265-${LIBDE265_VERSION}.tar.gz | \
+    tar zx && \
+    cd libde265-${LIBDE265_VERSION} && \
+    ./autogen.sh && \
+    ./configure && \
+    mkdir build && \
+    cd build && \
+    cmake .. && \
+    make && \
+    make install && \
+    cd ../.. && \
+    rm -rf libde265-${LIBDE265_VERSION}
+
+# Install libheif
+RUN curl -L https://github.com/strukturag/libheif/releases/download/v${LIBHEIF_VERSION}/libheif-${LIBHEIF_VERSION}.tar.gz | \
+    tar zx && \
+    cd libheif-${LIBHEIF_VERSION} && \
+    mkdir build && \
+    cd build && \
+    cmake -DENABLE_PLUGIN_LOADING=NO --preset=release .. && \
+    make && \
+    make install && \
+    cd ../.. && \
+    rm -rf libheif-${LIBHEIF_VERSION}
+
+# Install libvips
+RUN curl -L https://github.com/libvips/libvips/releases/download/v${VIPS_VERSION}/vips-${VIPS_VERSION}.tar.xz | \
+    tar -xJ && \
+    cd vips-${VIPS_VERSION} && \
+    meson setup build && \
+    cd build && \
+    meson compile && \
+    meson test && \
+    meson install && \
+    cd ../.. && \
+    rm -rf vips-${VIPS_VERSION}
+
 WORKDIR /app
 
-# Copy package.json and package-lock.json to the container
-COPY package*.json ./
-
-# Install npm dependencies, including sharp
-RUN npm install --global node-addon-api node-gyp
-RUN npm install && npm install --build-from-source sharp
-
-# Copy the rest of the application code to the container
 COPY . .
 
-# Expose port 3000 for Express.js
+COPY package.json package-lock.json ./
+
+RUN npm install --production
+
 EXPOSE 3000
 
-# Command to run the Express.js app
 CMD ["npm", "start"]
