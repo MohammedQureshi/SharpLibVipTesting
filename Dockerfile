@@ -81,10 +81,6 @@ COPY . .
 
 COPY package.json package-lock.json ./
 
-RUN npm install --save node-addon-api node-gyp
-
-ENV SHARP_IGNORE_GLOBAL_LIBVIPS=1
-
 RUN npm install --build-from-source
 
 EXPOSE 3000
